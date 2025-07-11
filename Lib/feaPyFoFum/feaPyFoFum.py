@@ -1072,9 +1072,11 @@ class FeaSyntaxWriter(object):
             if (nameType := name["type"]) in orderedNames:
                 orderedNames[nameType].append(name)
             # XXX silently fail here?
-        for nameType in orderedNames:
+        for nameType, nameDicts in orderedNames.items():
+            if len(nameDicts) == 0:
+                continue
             block = [f"{self._whitespace}{nameType} {{"]
-            for name in orderedNames[nameType]:
+            for name in nameDicts:
                 text = name["text"]
                 platform = name.get("platform")
                 script = name.get("script")
