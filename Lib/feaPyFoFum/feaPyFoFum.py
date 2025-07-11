@@ -1057,3 +1057,53 @@ class FeaSyntaxWriter(object):
         self._indentText(text)
         self._identifierStack.append("stylisticSetNames")
         return text
+
+    # character variant
+
+    def formatCharacterVariantNames(self, *names):
+        lines = ["cvParameters {"]
+        orderedNames = dict(
+            FeatUILabelNameID=[],
+            FeatUITooltipTextNameID=[],
+            SampleTextNameID=[],
+            ParamUILabelNameID=[],
+        )
+        for name in names:
+            if (nameType := name["type"]) in orderedNames:
+                orderedNames[nameType].append(name)
+            # XXX silently fail here?
+        for nameType in orderedNames:
+            block = [f"{self._whitespace}{nameType} {{"]
+            for name in orderedNames[nameType]:
+                text = name["text"]
+                platform = name.get("platform")
+                script = name.get("script")
+                language = name.get("language")
+                line = ["name"]
+                if platform is not None:
+                    line.append(str(platform))
+                    if script is not None:
+                        line.append(str(script))
+                        line.append(str(language))
+                line.append(u'\"%s\"' % text)
+                line = (self._whitespace * 2) + " ".join(line) + ";"
+                block.append(line)
+            block.append((self._whitespace + "};"))
+            lines.extend(block)
+        lines.append("};")
+        text = "\n".join(lines)
+        return text
+
+    def characterVariantNames(self, *names):
+        d = dict(
+            identifier="characterVariantNames",
+            names=names
+        )
+        self._content.append(d)
+
+    def _characterVariantNames(self, names):
+        text = self._handleBreakBefore("characterVariantNames")
+        text.extend(self.formatCharacterVariantNames(*names).splitlines())
+        self._indentText(text)
+        self._identifierStack.append("characterVariantNames")
+        return text

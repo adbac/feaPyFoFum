@@ -103,12 +103,27 @@ If `choice` is `True` the rule will be written as a `from` rule (GSUB LookupType
 
 The same contextual marking defined in the `substitution` method will be run for `ignoreSubstitution`.
 
-##### writer.stylisticSetFeatureNames(name1, name2, name3, ...)
+##### writer.stylisticSetNames(name1, name2, name3, ...)
 
 This will write the given names as `featureNames` in the current feature. Names must be dicts of this form:
 
 ```python
 name = {
+	"text" : "name for string",
+	"platform" : int, # optional
+	"script" : int, # optional
+	"language" : int, # optional
+}
+```
+
+##### writer.characterVariantNames(name1, name2, name3, ...)
+
+This will write the given names as `cvParameters` in the current feature. Names must be dicts of this form:
+
+```python
+name = {
+	"type": "type for this name",
+	# 'type' must be one of [FeatUILabelNameID, FeatUITooltipTextNameID, SampleTextNameID, ParamUILabelNameID]
 	"text" : "name for string",
 	"platform" : int, # optional
 	"script" : int, # optional
@@ -148,6 +163,8 @@ This will only assume that the substitution rule should contain contextual marki
 This will only assume that the substitution rule should contain contextual marking (`'`) if `lookahead` or `backtrack` are not None.
 
 ##### writer.formatStylisticSetNames(name1, name2, name3, ...)
+
+##### writer.formatCharacterVariantNames(name1, name2, name3, ...)
 
 
 # FeaPyFoFum
