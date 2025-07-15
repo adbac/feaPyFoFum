@@ -15,7 +15,7 @@ class FeaPyFoFumError(Exception):
 # External API
 # ------------
 
-def compileFeatures(text, font, verbose=False, compileReferencedFiles=False):
+def compileFeatures(text, font, verbose=False, compileReferencedFiles=False, namespaceAdditions={}):
     """
     Compile the dynamic features in the given text.
 
@@ -31,11 +31,14 @@ def compileFeatures(text, font, verbose=False, compileReferencedFiles=False):
     files will be compiled and the references will be updated.
     The locations of the referenced files are assumed to be
     relative to the directory containing the font.
+
+    Additions to the execution namespace can be made through namespaceAdditions.
     """
     if not compileReferencedFiles:
         text = _compileFeatureText(
             text,
             font,
+            namespace=namespaceAdditions,
             verbose=verbose
         )[0]
     else:
@@ -45,6 +48,7 @@ def compileFeatures(text, font, verbose=False, compileReferencedFiles=False):
         text, referencedFiles = _compileFeatureText(
             text,
             font,
+            namespace=namespaceAdditions,
             relativePath=relativePath,
             verbose=verbose
         )
@@ -54,6 +58,7 @@ def compileFeatures(text, font, verbose=False, compileReferencedFiles=False):
                 outPath,
                 relativePath,
                 font,
+                namespace=namespaceAdditions,
                 verbose=False
             )
     return text
@@ -63,7 +68,7 @@ def compileFeatures(text, font, verbose=False, compileReferencedFiles=False):
 # .fea File Creation
 # ------------------
 
-def _compileFeatureText(text, font, relativePath=None, verbose=False, recursionDepth=0):
+def _compileFeatureText(text, font, relativePath=None, verbose=False, namespace={}, recursionDepth=0):
     """
     Compile the completed feature text.
     If the relativePath is given files referenced
@@ -84,12 +89,11 @@ def _compileFeatureText(text, font, relativePath=None, verbose=False, recursionD
         else:
             raise FeaPyFoFumError("Maximum reference file recursion depth exceeded.")
     # compile
-    namespace = {}
     text = _executeFeatureText(text, font, namespace, verbose=verbose)
     return text, referencedFiles
 
 
-def _compileReferencedFeatureFile(inPath, outPath, relativePath, font, verbose=False, recursionDepth=0):
+def _compileReferencedFeatureFile(inPath, outPath, relativePath, font, verbose=False, namespace={}, recursionDepth=0):
     """
     Compile the file given in inPath and write it to outPath.
     """
@@ -103,6 +107,7 @@ def _compileReferencedFeatureFile(inPath, outPath, relativePath, font, verbose=F
         text,
         font,
         relativePath,
+        namespace=namespace,
         verbose=verbose,
         recursionDepth=recursionDepth
     )
@@ -115,6 +120,7 @@ def _compileReferencedFeatureFile(inPath, outPath, relativePath, font, verbose=F
             referenceOutPath,
             relativePath,
             font,
+            namespace=namespace,
             verbose=verbose,
             recursionDepth=recursionDepth + 1
         )
