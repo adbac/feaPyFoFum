@@ -15,7 +15,16 @@ class FeaPyFoFumError(Exception):
 # External API
 # ------------
 
-def compileFeatures(text, font, verbose=False, compileReferencedFiles=False):
+
+def compileFeatures(
+    textOrPath,
+    font,
+    parseIncludes=False,
+    verbose=False,
+    compileReferencedFiles=False,
+    compileInPlace=False,
+    namespaceAdditions={},
+):
     """
     Compile the dynamic features in the given text.
 
@@ -32,20 +41,44 @@ def compileFeatures(text, font, verbose=False, compileReferencedFiles=False):
     The locations of the referenced files are assumed to be
     relative to the directory containing the font.
     """
+    # detect .fea path or text
+    try:
+        assert os.path.exists(str(textOrPath))
+        filePath = textOrPath
+        text = None
+    except:
+        filePath = None
+        text = textOrPath
+    # create namespace with additions
+    namespace = dict(
+        feaPath=filePath,
+        **namespaceAdditions,
+    )
+    # determine the base directory for relative paths
+    if filePath is not None:
+        relativePath = os.path.dirname(filePath)
+    elif font.path:
+        relativePath = os.path.dirname(font.path)
+    else:
+        relativePath = None
+    # compile
     if not compileReferencedFiles:
         text = _compileFeatureText(
             text,
             font,
+            namespace,
+            # relativePath=relativePath,
+            parseIncludes=parseIncludes,
             verbose=verbose
         )[0]
     else:
-        relativePath = None
-        if font.path:
-            relativePath = os.path.dirname(font.path)
         text, referencedFiles = _compileFeatureText(
             text,
             font,
+            namespace,
             relativePath=relativePath,
+            parseIncludes=parseIncludes,
+            inplacePaths=compileInPlace,
             verbose=verbose
         )
         for inPath, outPath in referencedFiles:
@@ -54,6 +87,9 @@ def compileFeatures(text, font, verbose=False, compileReferencedFiles=False):
                 outPath,
                 relativePath,
                 font,
+                namespace,
+                parseIncludes=parseIncludes,
+                compileInPlace=compileInPlace,
                 verbose=False
             )
     return text
@@ -63,33 +99,39 @@ def compileFeatures(text, font, verbose=False, compileReferencedFiles=False):
 # .fea File Creation
 # ------------------
 
-def _compileFeatureText(text, font, relativePath=None, verbose=False, recursionDepth=0):
+def _compileFeatureText(text, font, namespace={}, relativePath=None, parseIncludes=False, inplacePaths=False, verbose=False, recursionDepth=0):
     """
     Compile the completed feature text.
     If the relativePath is given files referenced
     with include statements will be processed
     """
+    # compile
+    # TODO: update the feaPath in the namespace to the current processed file path
+    # namespace["feaPath"] = ""
+    text = _executeFeatureText(text, font, namespace, verbose=verbose)
     referencedFiles = []
-    if relativePath is not None:
-        # find referenced files and update them to the new paths
+    # find referenced files and update them to the new paths
+    if relativePath is not None or parseIncludes:
         # XXX the relative path stuff here is potentially problematic.
         # XXX the .fea spec is vague about how paths should be resolved.
         if recursionDepth <= 5:
-            fileMapping = _getReferencedFileMapping(text)
+            fileMapping = _getReferencedFileMapping(text, inplacePaths)
             for referenceInPath, referencedData in fileMapping.items():
                 referenceInPath = os.path.normpath(os.path.join(relativePath, referenceInPath))
                 referenceOutPath = os.path.normpath(os.path.join(relativePath, referencedData["outPath"]))
                 referencedFiles.append((referenceInPath, referenceOutPath))
-                text = text.replace(referencedData["target"], referencedData["replacement"])
+                if parseIncludes:
+                    with open(referenceInPath, "r") as f:
+                        referencedContent = f.read()
+                    text = text.replace(referencedData["target"], referencedContent)
+                else:
+                    text = text.replace(referencedData["target"], referencedData["replacement"])
         else:
             raise FeaPyFoFumError("Maximum reference file recursion depth exceeded.")
-    # compile
-    namespace = {}
-    text = _executeFeatureText(text, font, namespace, verbose=verbose)
     return text, referencedFiles
 
 
-def _compileReferencedFeatureFile(inPath, outPath, relativePath, font, verbose=False, recursionDepth=0):
+def _compileReferencedFeatureFile(inPath, outPath, relativePath, font, namespace={}, parseIncludes=False, compileInPlace=False, verbose=False, recursionDepth=0):
     """
     Compile the file given in inPath and write it to outPath.
     """
@@ -102,7 +144,10 @@ def _compileReferencedFeatureFile(inPath, outPath, relativePath, font, verbose=F
     text, referencedFiles = _compileFeatureText(
         text,
         font,
+        namespace,
         relativePath,
+        parseIncludes=parseIncludes,
+        inplacePaths=compileInPlace,
         verbose=verbose,
         recursionDepth=recursionDepth
     )
@@ -115,12 +160,15 @@ def _compileReferencedFeatureFile(inPath, outPath, relativePath, font, verbose=F
             referenceOutPath,
             relativePath,
             font,
+            namespace,
+            parseIncludes=parseIncludes,
+            compileInPlace=compileInPlace,
             verbose=verbose,
             recursionDepth=recursionDepth + 1
         )
 
 
-def _getReferencedFileMapping(text):
+def _getReferencedFileMapping(text, inplace=False):
     """
     Get a mapping of referenced files in the text.
     The returned value has this form:
@@ -135,14 +183,15 @@ def _getReferencedFileMapping(text):
 
     All paths are relative.
     """
-    referencedFiles = _findReferenceFiles(text)
+    referencedFiles = _findReferencedFiles(text)
     mapping = {}
     for include in referencedFiles:
         includeStart = include.index("(") + 1
         includeEnd = include.index(")")
         inPath = include[includeStart:includeEnd]
         outPath, ext = os.path.splitext(inPath)
-        outPath += "-c"
+        if not inplace:
+            outPath += "-c"
         outPath += ext
         mapping[inPath] = dict(
             outPath=outPath,
@@ -152,7 +201,7 @@ def _getReferencedFileMapping(text):
     return mapping
 
 
-def _findReferenceFiles(text):
+def _findReferencedFiles(text):
     """
     Find all include statements in the text.
     """
