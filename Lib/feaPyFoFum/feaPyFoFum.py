@@ -122,9 +122,13 @@ def _compileFeatureText(text, font, namespace={}, relativePath=None, parseInclud
                 referenceOutPath = os.path.normpath(os.path.join(relativePath, referencedData["outPath"]))
                 referencedFiles.append((referenceInPath, referenceOutPath))
                 if parseIncludes:
+                    indent = re.findall(r"^\s*", referencedData["target"])[0]
                     with open(referenceInPath, "r") as f:
-                        referencedContent = f.read()
-                    text = text.replace(referencedData["target"], referencedContent)
+                        referencedLines = f.readlines()
+                    text = text.replace(
+                        referencedData["target"],
+                        "\n".join([(indent + l) for l in referencedLines]),
+                    )
                 else:
                     text = text.replace(referencedData["target"], referencedData["replacement"])
         else:
@@ -208,6 +212,7 @@ def _findReferencedFiles(text):
     """
     text = _stripComments(text)
     pattern = re.compile(
+        "\s*"
         "include\s*\("
         "[^\)]+"
         "\s*\)"
