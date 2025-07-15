@@ -124,7 +124,7 @@ def _compileFeatureText(text, font, namespace={}, relativePath=None, parseInclud
                 if parseIncludes:
                     indent = re.findall(r"^\s*", referencedData["target"])[0]
                     with open(referenceInPath, "r") as f:
-                        referencedLines = f.readlines()
+                        referencedLines = f.read().splitlines()
                     text = text.replace(
                         referencedData["target"],
                         "".join([(indent + l) for l in referencedLines]),
