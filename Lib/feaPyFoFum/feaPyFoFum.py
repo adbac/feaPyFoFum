@@ -45,7 +45,8 @@ def compileFeatures(
     try:
         assert os.path.exists(str(textOrPath))
         filePath = textOrPath
-        text = None
+        with open(filePath, "r") as f:
+            text = f.read()
     except:
         filePath = None
         text = textOrPath
@@ -67,7 +68,7 @@ def compileFeatures(
             text,
             font,
             namespace,
-            # relativePath=relativePath,
+            relativePath=relativePath,
             parseIncludes=parseIncludes,
             verbose=verbose
         )[0]
