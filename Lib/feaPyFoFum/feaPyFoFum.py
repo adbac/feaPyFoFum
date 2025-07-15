@@ -124,7 +124,7 @@ def _compileFeatureText(text, font, namespace={}, relativePath=None, parseInclud
                 if parseIncludes:
                     indent = re.findall(r"^\s*", referencedData["target"])[0]
                     with open(referenceInPath, "r") as f:
-                        referencedLines = f.read().splitlines()
+                        referencedLines = f.readlines()
                     text = text.replace(
                         referencedData["target"],
                         "".join([(indent + l) for l in referencedLines]),
@@ -191,6 +191,7 @@ def _getReferencedFileMapping(text, inplace=False):
     referencedFiles = _findReferencedFiles(text)
     mapping = {}
     for include in referencedFiles:
+        include = include.replace("\n", "")
         includeStart = include.index("(") + 1
         includeEnd = include.index(")")
         inPath = include[includeStart:includeEnd]
