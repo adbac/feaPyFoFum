@@ -127,7 +127,7 @@ def _compileFeatureText(text, font, namespace={}, relativePath=None, parseInclud
                         referencedLines = f.readlines()
                     text = text.replace(
                         referencedData["target"],
-                        "\n".join([(indent + l) for l in referencedLines]),
+                        "".join([(indent + l) for l in referencedLines]),
                     )
                 else:
                     text = text.replace(referencedData["target"], referencedData["replacement"])
