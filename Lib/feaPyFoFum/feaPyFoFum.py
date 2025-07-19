@@ -256,10 +256,10 @@ def _findReferenceFiles(text):
     """
     text = _stripComments(text)
     pattern = re.compile(
-        "include\s*\("
-        "[^\)]+"
-        "\s*\)"
-        "\s*;"
+        r"include\s*\("
+        r"[^\)]+"
+        r"\s*\)"
+        r"\s*;"
     )
     return pattern.findall(text)
 
