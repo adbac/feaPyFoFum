@@ -15,7 +15,7 @@ class FeaPyFoFumError(Exception):
 # External API
 # ------------
 
-def compileFeatures(text, font, verbose=False, compileReferencedFiles=False, namespaceAdditions={}):
+def compileFeatures(text, font, verbose=False, compileReferencedFiles=False, namespaceAdditions={}, parseIncludes=False):
     """
     Compile the dynamic features in the given text.
 
@@ -33,7 +33,12 @@ def compileFeatures(text, font, verbose=False, compileReferencedFiles=False, nam
     relative to the directory containing the font.
 
     Additions to the execution namespace can be made through namespaceAdditions.
+    
+    If parseIncludes is set to True, all include statements will be replaced by the compiled contents of the referenced files recursively.
     """
+    if parseIncludes:
+        basePath = os.path.dirname(getattr(font, 'path', '') or os.getcwd())
+        text = _parseIncludes(text, basePath, set(), font=font, namespace=namespaceAdditions, verbose=verbose)
     if not compileReferencedFiles:
         text = _compileFeatureText(
             text,
@@ -61,6 +66,66 @@ def compileFeatures(text, font, verbose=False, compileReferencedFiles=False, nam
                 namespace=namespaceAdditions,
                 verbose=False
             )
+    return text
+
+
+def _parseIncludes(text, basePath, processedFiles, font=None, namespace=None, verbose=False, recursionDepth=0):
+    """
+    Recursively replace include(path); statements with the compiled contents of the referenced files.
+    Each include path is resolved relative to the directory of the file containing the include statement (not the entry file).
+    basePath: directory to resolve relative include paths for the current file
+    processedFiles: set of absolute paths to avoid infinite recursion
+    font: font object to pass to _compileFeatureText
+    namespace: namespace dict for code execution
+    verbose: verbose flag for compilation
+    recursionDepth: current recursion depth (must be <= 5)
+    The included text will be indented to match the include statement.
+    """
+    if recursionDepth > 5:
+        raise FeaPyFoFumError("Maximum include recursion depth exceeded.")
+    if namespace is None:
+        namespace = {}
+    pattern = re.compile(r"^([ \t]*)include\s*\(([^)]+)\)\s*;", re.MULTILINE)
+    def _read_file(path):
+        with open(path, 'r', encoding='utf-8') as f:
+            return f.read()
+    while True:
+        match = pattern.search(text)
+        if not match:
+            break
+        indent = match.group(1)
+        relPath = match.group(2).strip()
+        absPath = os.path.normpath(os.path.join(basePath, relPath))
+        if absPath in processedFiles:
+            raise FeaPyFoFumError(f"Recursive include detected: {absPath}")
+        processedFiles.add(absPath)
+        if not os.path.isfile(absPath):
+            raise FeaPyFoFumError(f"Included file not found: {absPath}")
+        includedText = _read_file(absPath)
+        # Recursively parse and compile includes in the included file
+        compiledText, _ = _compileFeatureText(
+            includedText,
+            font,
+            namespace=namespace,
+            verbose=verbose
+        )
+        compiledText = _parseIncludes(
+            compiledText,
+            os.path.dirname(absPath),  # base_path is updated for each file
+            processedFiles,
+            font=font,
+            namespace=namespace,
+            verbose=verbose,
+            recursionDepth=recursionDepth + 1
+        )
+        # Indent the compiled text to match the include statement
+        indentedCompiled = '\n'.join(
+            (indent + line if line.strip() != '' else line)
+            for line in compiledText.splitlines()
+        )
+        # Replace the include statement with the indented compiled text
+        text = text[:match.start()] + indentedCompiled + text[match.end():]
+        processedFiles.remove(absPath)
     return text
 
 
