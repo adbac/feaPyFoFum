@@ -15,7 +15,7 @@ class FeaPyFoFumError(Exception):
 # External API
 # ------------
 
-def compileFeatures(text, font, verbose=False, compileReferencedFiles=False, namespaceAdditions={}, parseIncludes=False):
+def compileFeatures(textOrPath, font, verbose=False, compileReferencedFiles=False, namespaceAdditions={}, parseIncludes=False):
     """
     Compile the dynamic features in the given text.
 
@@ -36,40 +36,68 @@ def compileFeatures(text, font, verbose=False, compileReferencedFiles=False, nam
     
     If parseIncludes is set to True, all include statements will be replaced by the compiled contents of the referenced files recursively.
     """
-    if parseIncludes:
-        basePath = os.path.dirname(getattr(font, 'path', '') or os.getcwd())
-        text = _parseIncludes(text, basePath, set(), font=font, namespace=namespaceAdditions, verbose=verbose)
-    if not compileReferencedFiles:
-        text = _compileFeatureText(
-            text,
-            font,
-            namespace=namespaceAdditions,
-            verbose=verbose
-        )[0]
+    # detect .fea path or text
+    try:
+        assert str(textOrPath).endswith(".fea")
+        assert os.path.exists(str(textOrPath))
+        filePath = textOrPath
+        with open(filePath, "r") as f:
+            text = f.read()
+    except:
+        filePath = None
+        text = textOrPath
+    # create namespace with additions
+    namespace = dict(
+        FEA_PATH=filePath,
+        **namespaceAdditions,
+    )
+    # determine the base directory for relative paths
+    if filePath is not None:
+        relativePath = os.path.dirname(filePath)
+    elif font.path:
+        relativePath = os.path.dirname(font.path)
     else:
         relativePath = None
-        if font.path:
-            relativePath = os.path.dirname(font.path)
-        text, referencedFiles = _compileFeatureText(
-            text,
-            font,
-            namespace=namespaceAdditions,
-            relativePath=relativePath,
-            verbose=verbose
-        )
-        for inPath, outPath in referencedFiles:
-            _compileReferencedFeatureFile(
-                inPath,
-                outPath,
-                relativePath,
+    # compile
+    if parseIncludes:
+        text = _parseIncludes(text, relativePath, set(), font=font, namespace=namespace, verbose=verbose)
+    else:
+        if not compileReferencedFiles:
+            text = _compileFeatureText(
+                text,
                 font,
-                namespace=namespaceAdditions,
-                verbose=False
+                updateIncludes=False,
+                namespace=namespace,
+                verbose=verbose
+            )[0]
+        else:
+            relativePath = None
+            if font.path:
+                relativePath = os.path.dirname(font.path)
+            text, referencedFiles = _compileFeatureText(
+                text,
+                font,
+                namespace=namespace,
+                relativePath=relativePath,
+                verbose=verbose
             )
+            for inPath, outPath in referencedFiles:
+                _compileReferencedFeatureFile(
+                    inPath,
+                    outPath,
+                    relativePath,
+                    font,
+                    namespace=namespace,
+                    verbose=False
+                )
     return text
 
 
-def _parseIncludes(text, basePath, processedFiles, font=None, namespace=None, verbose=False, recursionDepth=0):
+# ------------------
+# .fea File Creation
+# ------------------
+
+def _parseIncludes(text, filePath, processedFiles, font=None, namespace={}, verbose=False, recursionDepth=0):
     """
     Recursively replace include(path); statements with the compiled contents of the referenced files.
     Each include path is resolved relative to the directory of the file containing the include statement (not the entry file).
@@ -83,10 +111,18 @@ def _parseIncludes(text, basePath, processedFiles, font=None, namespace=None, ve
     """
     if recursionDepth > 5:
         raise FeaPyFoFumError("Maximum include recursion depth exceeded.")
-    if namespace is None:
-        namespace = {}
+    # Compile the text before searching for include statements
+    namespace["FEA_PATH"] = filePath # update namespace
+    compiledText, _ = _compileFeatureText(
+        text,
+        font,
+        updateIncludes=False,
+        namespace=namespace,
+        verbose=verbose
+    )
+    text = compiledText
     pattern = re.compile(r"^([ \t]*)include\s*\(([^)]+)\)\s*;", re.MULTILINE)
-    def _read_file(path):
+    def _readFile(path):
         with open(path, 'r', encoding='utf-8') as f:
             return f.read()
     while True:
@@ -94,6 +130,7 @@ def _parseIncludes(text, basePath, processedFiles, font=None, namespace=None, ve
         if not match:
             break
         indent = match.group(1)
+        basePath = os.path.dirname(filePath)
         relPath = match.group(2).strip()
         absPath = os.path.normpath(os.path.join(basePath, relPath))
         if absPath in processedFiles:
@@ -101,17 +138,12 @@ def _parseIncludes(text, basePath, processedFiles, font=None, namespace=None, ve
         processedFiles.add(absPath)
         if not os.path.isfile(absPath):
             raise FeaPyFoFumError(f"Included file not found: {absPath}")
-        includedText = _read_file(absPath)
+        includedText = _readFile(absPath)
         # Recursively parse and compile includes in the included file
-        compiledText, _ = _compileFeatureText(
+        namespace["FEA_PATH"] = absPath # update namespace
+        includedText = _parseIncludes(
             includedText,
-            font,
-            namespace=namespace,
-            verbose=verbose
-        )
-        compiledText = _parseIncludes(
-            compiledText,
-            os.path.dirname(absPath),  # base_path is updated for each file
+            absPath,  # absPath is updated for each file
             processedFiles,
             font=font,
             namespace=namespace,
@@ -121,7 +153,7 @@ def _parseIncludes(text, basePath, processedFiles, font=None, namespace=None, ve
         # Indent the compiled text to match the include statement
         indentedCompiled = '\n'.join(
             (indent + line if line.strip() != '' else line)
-            for line in compiledText.splitlines()
+            for line in includedText.splitlines()
         )
         # Replace the include statement with the indented compiled text
         text = text[:match.start()] + indentedCompiled + text[match.end():]
@@ -129,18 +161,14 @@ def _parseIncludes(text, basePath, processedFiles, font=None, namespace=None, ve
     return text
 
 
-# ------------------
-# .fea File Creation
-# ------------------
-
-def _compileFeatureText(text, font, relativePath=None, verbose=False, namespace={}, recursionDepth=0):
+def _compileFeatureText(text, font, relativePath=None, updateIncludes=True, verbose=False, namespace={}, recursionDepth=0):
     """
     Compile the completed feature text.
-    If the relativePath is given files referenced
+    If updateIncludes is True and the relativePath is given files referenced
     with include statements will be processed
     """
     referencedFiles = []
-    if relativePath is not None:
+    if updateIncludes and relativePath is not None:
         # find referenced files and update them to the new paths
         # XXX the relative path stuff here is potentially problematic.
         # XXX the .fea spec is vague about how paths should be resolved.
