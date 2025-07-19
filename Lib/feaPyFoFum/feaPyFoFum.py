@@ -60,7 +60,7 @@ def compileFeatures(textOrPath, font, verbose=False, compileReferencedFiles=Fals
         relativePath = None
     # compile
     if parseIncludes:
-        text = _parseIncludes(text, relativePath, set(), font=font, namespace=namespace, verbose=verbose)
+        text = _parseIncludes(text, filePath, set(), font=font, namespace=namespace, verbose=verbose)
     else:
         if not compileReferencedFiles:
             text = _compileFeatureText(
