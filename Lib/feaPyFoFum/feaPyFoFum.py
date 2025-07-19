@@ -38,7 +38,7 @@ def compileFeatures(textOrPath, font, verbose=False, compileReferencedFiles=Fals
     """
     # detect .fea path or text
     try:
-        assert os.path.exists(textOrPath) and os.path.splitext(textOrPath)[1] == "fea"
+        assert os.path.exists(textOrPath) and os.path.splitext(textOrPath)[1] == ".fea"
         filePath = os.path.abspath(textOrPath)
         with open(filePath, "r") as f:
             text = f.read()
