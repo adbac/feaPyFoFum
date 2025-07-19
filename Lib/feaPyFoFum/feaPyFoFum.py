@@ -166,6 +166,9 @@ def _compileFeatureText(text, font, relativePath=None, updateIncludes=True, verb
     If updateIncludes is True and the relativePath is given files referenced
     with include statements will be processed
     """
+    # compile
+    text = _executeFeatureText(text, font, namespace, verbose=verbose)
+    # update include statements
     referencedFiles = []
     if updateIncludes and relativePath is not None:
         # find referenced files and update them to the new paths
@@ -180,8 +183,6 @@ def _compileFeatureText(text, font, relativePath=None, updateIncludes=True, verb
                 text = text.replace(referencedData["target"], referencedData["replacement"])
         else:
             raise FeaPyFoFumError("Maximum reference file recursion depth exceeded.")
-    # compile
-    text = _executeFeatureText(text, font, namespace, verbose=verbose)
     return text, referencedFiles
 
 
