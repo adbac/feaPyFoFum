@@ -40,7 +40,7 @@ def compileFeatures(textOrPath, font, verbose=False, compileReferencedFiles=Fals
     try:
         assert str(textOrPath).endswith(".fea")
         assert os.path.exists(str(textOrPath))
-        filePath = textOrPath
+        filePath = os.path.abspath(textOrPath)
         with open(filePath, "r") as f:
             text = f.read()
     except:
