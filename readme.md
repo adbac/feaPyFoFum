@@ -184,7 +184,8 @@ originalFeatures = font.features.text
 font.features.text = compileFeatures(
     originalFeatures,
     font,
-    compileReferencedFiles=True
+    compileReferencedFiles=True,
+    namespaceAdditions=dict(someVariable=123),
 )
 
 # generate the binary
@@ -207,7 +208,7 @@ This snippet will compile the features, put them in the font, generate an OTF-CF
 	- probably other stuff
 * In the namespace, insert all `writer.format*` methods as `format*` function lookalikes to make calling them less cumbersome.
 * Clean up the output from the writer.
-    - http://opentypecookbook.com/style-guide.html
+    - http://opentypecookbook.com/style-guide/
     - The identifier system seems to be going haywire and inserting unnecessary blank lines.
 * Test cases.
 * Add commandline tool.

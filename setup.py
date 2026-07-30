@@ -1,13 +1,13 @@
 import re
-from setuptools import setup
 
+from setuptools import setup
 
 _versionRE = re.compile(r'__version__\s*=\s*\"([^\"]+)\"')
 # read the version number for the settings file
-with open('lib/feaPyFoFum/__init__.py', "r") as settings:
+with open('Lib/feaPyFoFum/__init__.py', "r") as settings:
     code = settings.read()
     found = _versionRE.search(code)
-    assert found is not None, "glyphConstruction __version__ not found"
+    assert found is not None, "feaPyFoFum __version__ not found"
     __version__ = found.group(1)
 
 setup(
