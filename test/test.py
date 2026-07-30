@@ -90,7 +90,9 @@ path = os.path.join(os.path.dirname(__file__), "font.ufo")
 font.save(path)
 
 try:
-    font.features.text = compileFeatures(font.features.text, font, verbose=False, compileReferencedFiles=True)
+    font.features.text = compileFeatures(
+        font.features.text, font, verbose=False, compileReferencedFiles=True
+    )
     print(font.features.text)
 finally:
     shutil.rmtree(path)

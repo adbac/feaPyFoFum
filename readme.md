@@ -109,10 +109,10 @@ This will write the given names as `featureNames` in the current feature. Names 
 
 ```python
 name = {
-	"text" : "name for string",
-	"platform" : int, # optional
-	"script" : int, # optional
-	"language" : int, # optional
+    "text": "name for string",
+    "platform": int,  # optional
+    "script": int,  # optional
+    "language": int,  # optional
 }
 ```
 
@@ -122,12 +122,12 @@ This will write the given names as `cvParameters` in the current feature. Names 
 
 ```python
 name = {
-	"type": "type for this name",
-	# 'type' must be one of [FeatUILabelNameID, FeatUITooltipTextNameID, SampleTextNameID, ParamUILabelNameID]
-	"text" : "name for string",
-	"platform" : int, # optional
-	"script" : int, # optional
-	"language" : int, # optional
+    "type": "type for this name",
+    # 'type' must be one of [FeatUILabelNameID, FeatUITooltipTextNameID, SampleTextNameID, ParamUILabelNameID]
+    "text": "name for string",
+    "platform": int,  # optional
+    "script": int,  # optional
+    "language": int,  # optional
 }
 ```
 

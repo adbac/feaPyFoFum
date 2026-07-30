@@ -15,7 +15,15 @@ class FeaPyFoFumError(Exception):
 # External API
 # ------------
 
-def compileFeatures(textOrPath, font, verbose=False, compileReferencedFiles=False, namespaceAdditions={}, parseIncludes=False):
+
+def compileFeatures(
+    textOrPath,
+    font,
+    verbose=False,
+    compileReferencedFiles=False,
+    namespaceAdditions={},
+    parseIncludes=False,
+):
     """
     Compile the dynamic features in the given text.
 
@@ -33,7 +41,7 @@ def compileFeatures(textOrPath, font, verbose=False, compileReferencedFiles=Fals
     relative to the directory containing the font.
 
     Additions to the execution namespace can be made through namespaceAdditions.
-    
+
     If parseIncludes is set to True, all include statements will be replaced by the compiled contents of the referenced files recursively.
     """
     # detect .fea path or text
@@ -59,15 +67,13 @@ def compileFeatures(textOrPath, font, verbose=False, compileReferencedFiles=Fals
         relativePath = None
     # compile
     if parseIncludes:
-        text = _parseIncludes(text, filePath, set(), font=font, namespace=namespace, verbose=verbose)
+        text = _parseIncludes(
+            text, filePath, set(), font=font, namespace=namespace, verbose=verbose
+        )
     else:
         if not compileReferencedFiles:
             text = _compileFeatureText(
-                text,
-                font,
-                updateIncludes=False,
-                namespace=namespace,
-                verbose=verbose
+                text, font, updateIncludes=False, namespace=namespace, verbose=verbose
             )[0]
         else:
             relativePath = None
@@ -78,7 +84,7 @@ def compileFeatures(textOrPath, font, verbose=False, compileReferencedFiles=Fals
                 font,
                 namespace=namespace,
                 relativePath=relativePath,
-                verbose=verbose
+                verbose=verbose,
             )
             for inPath, outPath in referencedFiles:
                 _compileReferencedFeatureFile(
@@ -87,7 +93,7 @@ def compileFeatures(textOrPath, font, verbose=False, compileReferencedFiles=Fals
                     relativePath,
                     font,
                     namespace=namespace,
-                    verbose=False
+                    verbose=False,
                 )
     return text
 
@@ -96,7 +102,16 @@ def compileFeatures(textOrPath, font, verbose=False, compileReferencedFiles=Fals
 # .fea File Creation
 # ------------------
 
-def _parseIncludes(text, filePath, processedFiles, font=None, namespace={}, verbose=False, recursionDepth=0):
+
+def _parseIncludes(
+    text,
+    filePath,
+    processedFiles,
+    font=None,
+    namespace={},
+    verbose=False,
+    recursionDepth=0,
+):
     """
     Recursively replace include(path); statements with the compiled contents of the referenced files.
     Each include path is resolved relative to the directory of the file containing the include statement (not the entry file).
@@ -111,19 +126,17 @@ def _parseIncludes(text, filePath, processedFiles, font=None, namespace={}, verb
     if recursionDepth > 5:
         raise FeaPyFoFumError("Maximum include recursion depth exceeded.")
     # Compile the text before searching for include statements
-    namespace["FEA_PATH"] = filePath # update namespace
+    namespace["FEA_PATH"] = filePath  # update namespace
     compiledText, _ = _compileFeatureText(
-        text,
-        font,
-        updateIncludes=False,
-        namespace=namespace,
-        verbose=verbose
+        text, font, updateIncludes=False, namespace=namespace, verbose=verbose
     )
     text = compiledText
     pattern = re.compile(r"^([ \t]*)include\s*\(([^)]+)\)\s*;", re.MULTILINE)
+
     def _readFile(path):
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, "r", encoding="utf-8") as f:
             return f.read()
+
     while True:
         match = pattern.search(text)
         if not match:
@@ -139,7 +152,7 @@ def _parseIncludes(text, filePath, processedFiles, font=None, namespace={}, verb
             raise FeaPyFoFumError(f"Included file not found: {absPath}")
         includedText = _readFile(absPath)
         # Recursively parse and compile includes in the included file
-        namespace["FEA_PATH"] = absPath # update namespace
+        namespace["FEA_PATH"] = absPath  # update namespace
         includedText = _parseIncludes(
             includedText,
             absPath,  # absPath is updated for each file
@@ -147,20 +160,28 @@ def _parseIncludes(text, filePath, processedFiles, font=None, namespace={}, verb
             font=font,
             namespace=namespace,
             verbose=verbose,
-            recursionDepth=recursionDepth + 1
+            recursionDepth=recursionDepth + 1,
         )
         # Indent the compiled text to match the include statement
-        indentedCompiled = '\n'.join(
-            (indent + line if line.strip() != '' else line)
+        indentedCompiled = "\n".join(
+            (indent + line if line.strip() != "" else line)
             for line in includedText.splitlines()
         )
         # Replace the include statement with the indented compiled text
-        text = text[:match.start()] + indentedCompiled + text[match.end():]
+        text = text[: match.start()] + indentedCompiled + text[match.end() :]
         processedFiles.remove(absPath)
     return text
 
 
-def _compileFeatureText(text, font, relativePath=None, updateIncludes=True, verbose=False, namespace={}, recursionDepth=0):
+def _compileFeatureText(
+    text,
+    font,
+    relativePath=None,
+    updateIncludes=True,
+    verbose=False,
+    namespace={},
+    recursionDepth=0,
+):
     """
     Compile the completed feature text.
     If updateIncludes is True and the relativePath is given files referenced
@@ -177,16 +198,24 @@ def _compileFeatureText(text, font, relativePath=None, updateIncludes=True, verb
         if recursionDepth <= 5:
             fileMapping = _getReferencedFileMapping(text)
             for referenceInPath, referencedData in fileMapping.items():
-                referenceInPath = os.path.normpath(os.path.join(relativePath, referenceInPath))
-                referenceOutPath = os.path.normpath(os.path.join(relativePath, referencedData["outPath"]))
+                referenceInPath = os.path.normpath(
+                    os.path.join(relativePath, referenceInPath)
+                )
+                referenceOutPath = os.path.normpath(
+                    os.path.join(relativePath, referencedData["outPath"])
+                )
                 referencedFiles.append((referenceInPath, referenceOutPath))
-                text = text.replace(referencedData["target"], referencedData["replacement"])
+                text = text.replace(
+                    referencedData["target"], referencedData["replacement"]
+                )
         else:
             raise FeaPyFoFumError("Maximum reference file recursion depth exceeded.")
     return text, referencedFiles
 
 
-def _compileReferencedFeatureFile(inPath, outPath, relativePath, font, verbose=False, namespace={}, recursionDepth=0):
+def _compileReferencedFeatureFile(
+    inPath, outPath, relativePath, font, verbose=False, namespace={}, recursionDepth=0
+):
     """
     Compile the file given in inPath and write it to outPath.
     """
@@ -202,7 +231,7 @@ def _compileReferencedFeatureFile(inPath, outPath, relativePath, font, verbose=F
         relativePath,
         namespace=namespace,
         verbose=verbose,
-        recursionDepth=recursionDepth
+        recursionDepth=recursionDepth,
     )
     with open(outPath, "w") as f:
         f.write(text)
@@ -215,7 +244,7 @@ def _compileReferencedFeatureFile(inPath, outPath, relativePath, font, verbose=F
             font,
             namespace=namespace,
             verbose=verbose,
-            recursionDepth=recursionDepth + 1
+            recursionDepth=recursionDepth + 1,
         )
 
 
@@ -246,7 +275,7 @@ def _getReferencedFileMapping(text):
         mapping[inPath] = dict(
             outPath=outPath,
             target=include,
-            replacement=include[:includeStart] + outPath + include[includeEnd:]
+            replacement=include[:includeStart] + outPath + include[includeEnd:],
         )
     return mapping
 
@@ -276,6 +305,7 @@ def _stripComments(text):
 # --------------
 # .fea Execution
 # --------------
+
 
 def _executeFeatureText(text, font, namespace, verbose=False):
     """
@@ -340,7 +370,9 @@ def _extractCodeFromCodeBlock(codeBlock):
         stripped = line.strip()
         if stripped != "#":
             if not stripped.startswith("# "):
-                raise FeaPyFoFumError("Non-code was found in a code block: %s" % stripped)
+                raise FeaPyFoFumError(
+                    "Non-code was found in a code block: %s" % stripped
+                )
             ws, line = line.split("# ", 1)
             if whitespace is None:
                 whitespace = ws
@@ -397,7 +429,6 @@ needSpaceAfter = "feature lookup script language".split(" ")
 
 
 class FeaSyntaxWriter(object):
-
     def __init__(self, whitespace="\t"):
         self._featureName = None
         self._whitespace = whitespace
@@ -492,9 +523,7 @@ class FeaSyntaxWriter(object):
     # blank line
 
     def blankLine(self):
-        d = dict(
-            identifier="blankLine"
-        )
+        d = dict(identifier="blankLine")
         self._content.append(d)
 
     def _blankLine(self, comment):
@@ -508,10 +537,7 @@ class FeaSyntaxWriter(object):
     def comment(self, comment):
         if not comment.startswith("# "):
             comment = "# " + comment
-        d = dict(
-            identifier="comment",
-            comment=comment
-        )
+        d = dict(identifier="comment", comment=comment)
         self._content.append(d)
 
     def _comment(self, comment):
@@ -524,15 +550,10 @@ class FeaSyntaxWriter(object):
     # file reference
 
     def formatFileReference(self, path):
-        return "include({path});".format(
-            path=path
-        )
+        return "include({path});".format(path=path)
 
     def fileReference(self, path):
-        d = dict(
-            identifier="fileReference",
-            path=path
-        )
+        d = dict(identifier="fileReference", path=path)
         self._content.append(d)
 
     def _fileReference(self, path):
@@ -546,16 +567,11 @@ class FeaSyntaxWriter(object):
 
     def formatLanguageSystem(self, script, language):
         return "languagesystem {script} {language};".format(
-            script=script,
-            language=language
+            script=script, language=language
         )
 
     def languageSystem(self, script, language):
-        d = dict(
-            identifier="languageSystem",
-            script=script,
-            language=language
-        )
+        d = dict(identifier="languageSystem", script=script, language=language)
         self._content.append(d)
 
     def _languageSystem(self, script, language):
@@ -569,15 +585,10 @@ class FeaSyntaxWriter(object):
     # script
 
     def formatScript(self, name):
-        return "script {name};".format(
-            name=name
-        )
+        return "script {name};".format(name=name)
 
     def script(self, name):
-        d = dict(
-            identifier="script",
-            name=name
-        )
+        d = dict(identifier="script", name=name)
         self._content.append(d)
         # shift the indents
         self._inScript = True
@@ -600,16 +611,10 @@ class FeaSyntaxWriter(object):
     # language
 
     def formatLanguage(self, name):
-        return "language {name};".format(
-            name=name
-        )
+        return "language {name};".format(name=name)
 
     def language(self, name, includeDefault=True):
-        d = dict(
-            identifier="language",
-            name=name,
-            includeDefault=includeDefault
-        )
+        d = dict(identifier="language", name=name, includeDefault=includeDefault)
         self._content.append(d)
         # shift the indents
         self._inLanguage = True
@@ -634,16 +639,11 @@ class FeaSyntaxWriter(object):
 
     def formatClassDefinition(self, name, members):
         return "{name} = {members};".format(
-            name=name,
-            members=self._flattenClass(members)
+            name=name, members=self._flattenClass(members)
         )
 
     def classDefinition(self, name, members):
-        d = dict(
-            identifier="classDefinition",
-            name=name,
-            members=members
-        )
+        d = dict(identifier="classDefinition", name=name, members=members)
         self._content.append(d)
 
     def _classDefinition(self, name, members):
@@ -690,11 +690,7 @@ class FeaSyntaxWriter(object):
         writer = self.__class__(whitespace=self._whitespace)
         writer._featureName = name
         writer._indent = self._indent + 1
-        d = dict(
-            identifier="feature",
-            name=name,
-            writer=writer
-        )
+        d = dict(identifier="feature", name=name, writer=writer)
         self._content.append(d)
         return writer
 
@@ -715,11 +711,7 @@ class FeaSyntaxWriter(object):
     def lookup(self, name):
         writer = self.__class__(whitespace=self._whitespace)
         writer._indent = self._indentLevel() + 1
-        d = dict(
-            identifier="lookup",
-            name=name,
-            writer=writer
-        )
+        d = dict(identifier="lookup", name=name, writer=writer)
         self._content.append(d)
         return writer
 
@@ -743,10 +735,7 @@ class FeaSyntaxWriter(object):
         """
         # XXX all lookup flags need to be regestered at once for a given lookup
         # XXX maybe this could be more flexible and different flags could be added att diferent times (?)
-        d = dict(
-            identifier="lookupflag",
-            flags=flags
-        )
+        d = dict(identifier="lookupflag", flags=flags)
         self._content.append(d)
 
     def _lookupflag(self, flags):
@@ -759,15 +748,10 @@ class FeaSyntaxWriter(object):
     # feature reference
 
     def formatFeatureReference(self, name):
-        return "feature {name};".format(
-            name=name
-        )
+        return "feature {name};".format(name=name)
 
     def featureReference(self, name):
-        d = dict(
-            identifier="featureReference",
-            name=name
-        )
+        d = dict(identifier="featureReference", name=name)
         self._content.append(d)
 
     def _featureReference(self, name):
@@ -780,15 +764,10 @@ class FeaSyntaxWriter(object):
     # lookup reference
 
     def formatLookupReference(self, name):
-        return "lookup {name};".format(
-            name=name
-        )
+        return "lookup {name};".format(name=name)
 
     def lookupReference(self, name):
-        d = dict(
-            identifier="lookupReference",
-            name=name
-        )
+        d = dict(identifier="lookupReference", name=name)
         self._content.append(d)
 
     def _lookupReference(self, name):
@@ -818,7 +797,9 @@ class FeaSyntaxWriter(object):
         fullTarget = " ".join(fullTarget)
         return fullTarget
 
-    def formatSubstitution(self, target, substitution, backtrack=None, lookahead=None, choice=False):
+    def formatSubstitution(
+        self, target, substitution, backtrack=None, lookahead=None, choice=False
+    ):
         fullTarget = self._formatContextTarget(target, backtrack, lookahead)
         # substitution
         if isinstance(substitution, str):
@@ -830,20 +811,18 @@ class FeaSyntaxWriter(object):
                 substitution = self._flattenSequence(substitution)
         # rule
         if substitution is None:
-            return "ignore sub {target};".format(
-                target=fullTarget
-            )
+            return "ignore sub {target};".format(target=fullTarget)
         else:
             keyword = "by"
             if choice:
                 keyword = "from"
             return "sub {target} {keyword} {substitution};".format(
-                target=fullTarget,
-                keyword=keyword,
-                substitution=substitution
+                target=fullTarget, keyword=keyword, substitution=substitution
             )
 
-    def substitution(self, target, substitution, backtrack=None, lookahead=None, choice=False):
+    def substitution(
+        self, target, substitution, backtrack=None, lookahead=None, choice=False
+    ):
         if isinstance(target, str):
             target = [target]
         if isinstance(substitution, str):
@@ -854,11 +833,13 @@ class FeaSyntaxWriter(object):
             substitution=substitution,
             backtrack=backtrack,
             lookahead=lookahead,
-            choice=choice
+            choice=choice,
         )
         self._content.append(d)
 
-    def _substitution(self, target, substitution, backtrack=None, lookahead=None, choice=False):
+    def _substitution(
+        self, target, substitution, backtrack=None, lookahead=None, choice=False
+    ):
         text = self._handleBreakBefore("substitution")
         text.append(
             self.formatSubstitution(
@@ -866,7 +847,7 @@ class FeaSyntaxWriter(object):
                 substitution,
                 backtrack=backtrack,
                 lookahead=lookahead,
-                choice=choice
+                choice=choice,
             )
         )
         self._indentText(text)
@@ -881,7 +862,7 @@ class FeaSyntaxWriter(object):
             substitution=None,
             backtrack=backtrack,
             lookahead=lookahead,
-            choice=False
+            choice=False,
         )
 
     def ignoreSubstitution(self, target, backtrack=None, lookahead=None):
@@ -890,7 +871,7 @@ class FeaSyntaxWriter(object):
             substitution=None,
             backtrack=backtrack,
             lookahead=lookahead,
-            choice=False
+            choice=False,
         )
 
     # position single
@@ -900,24 +881,18 @@ class FeaSyntaxWriter(object):
             return value
         return "<%s %s %s %s>" % value
 
-    def _formatPositionBasic(self, target, value, backtrack, lookahead, enumerate=False):
+    def _formatPositionBasic(
+        self, target, value, backtrack, lookahead, enumerate=False
+    ):
         fullTarget = self._formatContextTarget(target, backtrack, lookahead)
         if value is not None:
             value = self.formatPositionValue(value)
         if enumerate:
-            return "enum pos {target} {value};".format(
-                target=fullTarget,
-                value=value
-            )
+            return "enum pos {target} {value};".format(target=fullTarget, value=value)
         elif value is None:
-            return "ignore pos {target};".format(
-                target=fullTarget
-            )
+            return "ignore pos {target};".format(target=fullTarget)
         else:
-            return "pos {target} {value};".format(
-                target=fullTarget,
-                value=value
-            )
+            return "pos {target} {value};".format(target=fullTarget, value=value)
 
     def formatPositionSingle(self, target, value, backtrack=None, lookahead=None):
         return self._formatPositionBasic(target, value, backtrack, lookahead)
@@ -930,7 +905,7 @@ class FeaSyntaxWriter(object):
             target=target,
             value=value,
             backtrack=backtrack,
-            lookahead=lookahead
+            lookahead=lookahead,
         )
         self._content.append(d)
 
@@ -938,10 +913,7 @@ class FeaSyntaxWriter(object):
         text = self._handleBreakBefore("positionSingle")
         text.append(
             self.formatPositionSingle(
-                target,
-                value,
-                backtrack=backtrack,
-                lookahead=lookahead
+                target, value, backtrack=backtrack, lookahead=lookahead
             )
         )
         self._indentText(text)
@@ -952,36 +924,37 @@ class FeaSyntaxWriter(object):
 
     def formatIgnorePositionSingle(self, target, backtrack=None, lookahead=None):
         return self.formatPositionSingle(
-            target=target,
-            backtrack=backtrack,
-            lookahead=lookahead
+            target=target, backtrack=backtrack, lookahead=lookahead
         )
 
     def ignorePositionSingle(self, target, backtrack=None, lookahead=None):
         self.positionSingle(
-            target=target,
-            value=None,
-            backtrack=backtrack,
-            lookahead=lookahead
+            target=target, value=None, backtrack=backtrack, lookahead=lookahead
         )
 
     # position pair
 
-    def formatPositionPair(self, target, value, backtrack=None, lookahead=None, enumerate=False):
+    def formatPositionPair(
+        self, target, value, backtrack=None, lookahead=None, enumerate=False
+    ):
         return self._formatPositionBasic(target, value, backtrack, lookahead, enumerate)
 
-    def positionPair(self, target, value, backtrack=None, lookahead=None, enumerate=False):
+    def positionPair(
+        self, target, value, backtrack=None, lookahead=None, enumerate=False
+    ):
         d = dict(
             identifier="positionPair",
             target=target,
             value=value,
             backtrack=backtrack,
             lookahead=lookahead,
-            enumerate=enumerate
+            enumerate=enumerate,
         )
         self._content.append(d)
 
-    def _positionPair(self, target, value, backtrack=None, lookahead=None, enumerate=False):
+    def _positionPair(
+        self, target, value, backtrack=None, lookahead=None, enumerate=False
+    ):
         text = self._handleBreakBefore("positionPair")
         text.append(
             self.formatPositionPair(
@@ -989,7 +962,7 @@ class FeaSyntaxWriter(object):
                 value,
                 backtrack=backtrack,
                 lookahead=lookahead,
-                enumerate=enumerate
+                enumerate=enumerate,
             )
         )
         self._indentText(text)
@@ -1020,13 +993,7 @@ class FeaSyntaxWriter(object):
 
     def _positionMarkToBase(self, target, anchor, markClass):
         text = self._handleBreakBefore("positionMarkToBase")
-        text.append(
-            self.formatPositionMarkToBase(
-                target,
-                anchor,
-                markClass
-            )
-        )
+        text.append(self.formatPositionMarkToBase(target, anchor, markClass))
         self._indentText(text)
         self._identifierStack.append("positionMarkToBase")
         return text
@@ -1055,13 +1022,7 @@ class FeaSyntaxWriter(object):
 
     def _positionMarkToMark(self, target, anchor, markClass):
         text = self._handleBreakBefore("positionMarkToMark")
-        text.append(
-            self.formatPositionMarkToMark(
-                target,
-                anchor,
-                markClass
-            )
-        )
+        text.append(self.formatPositionMarkToMark(target, anchor, markClass))
         self._indentText(text)
         self._identifierStack.append("positionMarkToMark")
         return text
@@ -1080,30 +1041,28 @@ class FeaSyntaxWriter(object):
         'anchor_data' should be a list of tuples representing anchor positions and the associtated markClass like [((x, y), @markClassName)]
         """
         d = dict(
-            identifier="positionMarkToLigature",
-            target=target,
-            anchor_data=anchor_data
+            identifier="positionMarkToLigature", target=target, anchor_data=anchor_data
         )
         self._content.append(d)
 
     def _positionMarkToLigature(self, target, anchor_data):
         text = self._handleBreakBefore("positionMarkToLigature")
-        text.append(
-            self.formatPositionMarkToLigature(
-                target,
-                anchor_data
-            )
-        )
+        text.append(self.formatPositionMarkToLigature(target, anchor_data))
         self._indentText(text)
         self._identifierStack.append("positionMarkToLigature")
         return text
 
     def _formatPositionMarkBasic(self, kind, target, anchor_data):
-        marks = ["{anchor} mark {markClass}".format(anchor=self._formatAnchorDefinition(anchor), markClass=markClass) for anchor, markClass in anchor_data]
+        marks = [
+            "{anchor} mark {markClass}".format(
+                anchor=self._formatAnchorDefinition(anchor), markClass=markClass
+            )
+            for anchor, markClass in anchor_data
+        ]
         return "position {kind} {target} {marks};".format(
             kind=kind,
             target=self._flattenClass(target),
-            marks=" ligComponent ".join(marks)
+            marks=" ligComponent ".join(marks),
         )
 
     # subtable
@@ -1136,7 +1095,7 @@ class FeaSyntaxWriter(object):
                 if script is not None:
                     line.append(str(script))
                     line.append(str(language))
-            line.append(u'\"%s\"' % text)
+            line.append('"%s"' % text)
             line = self._whitespace + " ".join(line) + ";"
             lines.append(line)
         lines.append("};")
@@ -1144,10 +1103,7 @@ class FeaSyntaxWriter(object):
         return text
 
     def stylisticSetNames(self, *names):
-        d = dict(
-            identifier="stylisticSetNames",
-            names=names
-        )
+        d = dict(identifier="stylisticSetNames", names=names)
         self._content.append(d)
 
     def _stylisticSetNames(self, names):
@@ -1186,7 +1142,7 @@ class FeaSyntaxWriter(object):
                     if script is not None:
                         line.append(str(script))
                         line.append(str(language))
-                line.append(u'\"%s\"' % text)
+                line.append('"%s"' % text)
                 line = (self._whitespace * 2) + " ".join(line) + ";"
                 block.append(line)
             block.append((self._whitespace + "};"))
@@ -1196,10 +1152,7 @@ class FeaSyntaxWriter(object):
         return text
 
     def characterVariantNames(self, *names):
-        d = dict(
-            identifier="characterVariantNames",
-            names=names
-        )
+        d = dict(identifier="characterVariantNames", names=names)
         self._content.append(d)
 
     def _characterVariantNames(self, names):
